@@ -1,65 +1,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
-#define CAPACITY_1 4
-#define CAPACITY_2 4
 
-void put(int *item){
-	if(count>=CAPACITY_1)
-		pthread_cond_wait(notfull);
-	buffer[in]=*item;
-	in=(in+1)%CAPACITY_1;
-	count++;
-	pthread_cond_signal(notempty);
-}
-void get(int *item){
-	if(count<=0)
-		pthread_cond_wait(notempty);
-	*item=buffer[out];
-	out=(out+1)%CAPACITY;
-	count--;
-	pthread_cond_signal(notfull);
-}
-
-typedef void (*FunType)(int*);
-typedef struct proCal{
-	int buffer[CAPACITY_1];
-	int in=0,out=0;
-	pthread_cond_t notfull,notempty;
-	int count=0;
-	FunType pPut=&put;
-	FunType pGet=&get;
-	/*void init(){
-		in=0;
-		out=0;
-		count=0;
-	}*/
-}proCal;
-
-proCal PC;
-void *producer(void*arg){
-	int x=0;
-	while(1){
-		(*PC.pPut)(&x);
-	}
-}
-void*consumer(void*arg){
-	int x;
-	while(1){
-		(*PC.pGet)(&x);
-	}
-
-}
-
-
-int main(){
-	int x=0;
-	int y=10;
-	(*(PC.pPut))(&y);
-	(*(PC.pGet))(&x);
-	printf("%d",x);
-}
-/*
 typedef struct {
     int value;
     pthread_mutex_t mutex;
@@ -86,10 +28,12 @@ void sema_signal(sema_t *sema)
 {
     pthread_mutex_lock(&sema->mutex);
     ++sema->value;
-    pthread_cond_signal(&sema->cond);
+	if(sema->value<=0)
+		pthread_cond_signal(&sema->cond);
     pthread_mutex_unlock(&sema->mutex);
 }
 
+#define CAPACITY 4
 int buffer1[CAPACITY],buffer2[CAPACITY];
 int pIn,calIn;
 int calOut,conOut;
@@ -113,6 +57,8 @@ sema_t empty_buffer1_sema;
 sema_t full_buffer1_sema;
 sema_t empty_buffer2_sema;
 sema_t full_buffer2_sema;
+sema_t buffer1_mutex_sema;
+sema_t buffer2_mutex_sema;
 
 #define ITEM_COUNT (CAPACITY * 2)
 void *consume(void *arg)
@@ -122,14 +68,12 @@ void *consume(void *arg)
 
     for (i = 0; i < ITEM_COUNT; i++) {
         sema_wait(&full_buffer2_sema);
-
+		sema_wait(&buffer2_mutex_sema);
         item = get_item(&conOut,buffer2); 
-
+		sema_signal(&buffer2_mutex_sema);
         sema_signal(&empty_buffer2_sema);
-
-        printf("    consume item: %c\n", item);
+        printf("          consume item: %c\n", item);
     }
-    return NULL;
 }
 
 
@@ -139,16 +83,18 @@ void *calculate(void *arg)
     int item;
     for (i = 0; i < ITEM_COUNT; i++) {
         sema_wait(&full_buffer1_sema);
+        sema_wait(&buffer1_mutex_sema);
         item = get_item(&calOut,buffer1); 
+        sema_signal(&buffer1_mutex_sema);
         sema_signal(&empty_buffer1_sema);
 		item=item+'A'-'a';
         sema_wait(&empty_buffer2_sema);
+        sema_wait(&buffer2_mutex_sema);
         put_item(item,&calIn,buffer2); 
+        sema_signal(&buffer2_mutex_sema);
         sema_signal(&full_buffer2_sema);
-
         printf("    calculate item: %c\n", item);
     }
-    return NULL;
 }
 
 void *produce(void*args)
@@ -157,14 +103,15 @@ void *produce(void*args)
     int item;
     for (i = 0; i < ITEM_COUNT; i++) {
         sema_wait(&empty_buffer1_sema);
+        sema_wait(&buffer1_mutex_sema);
         item = i + 'a';
         put_item(item,&pIn,buffer1);
+        sema_signal(&buffer1_mutex_sema);
         sema_signal(&full_buffer1_sema);
         printf("produce item: %c\n", item);
     }
 }
 
-// The program contains a bug. Can you find it?
 int main()
 {
     pthread_t consume_tid;
@@ -179,6 +126,8 @@ int main()
     sema_init(&full_buffer1_sema, 0);
     sema_init(&empty_buffer2_sema, CAPACITY);
     sema_init(&full_buffer2_sema, 0);
+    sema_init(&buffer1_mutex_sema, 1);
+    sema_init(&buffer2_mutex_sema, 1);
 
     pthread_create(&produce_tid, NULL, produce, NULL);
     pthread_create(&consume_tid, NULL, consume, NULL);
@@ -186,11 +135,9 @@ int main()
 	pthread_join(produce_tid,NULL);
 	pthread_join(consume_tid,NULL);
 	pthread_join(calculate_tid,NULL);
-
-
     return 0;
 }
- */
+ 
 
 
 

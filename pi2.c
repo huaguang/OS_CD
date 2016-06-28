@@ -29,6 +29,7 @@ void *compute(void*arg){
 		}
 
 	}
+	res->sum*=4;
 	return res;
 }
 int main(){
@@ -59,7 +60,7 @@ int main(){
 		sum+=res->sum;
 		printf("sum=%.12Lf,res->sum=%.12Lf\n",sum,res->sum);
 	}
-	printf("pi/4 is %.12Lf",sum);
+	printf("pi is %.12Lf\n",sum);
 	return 0;
 }
 

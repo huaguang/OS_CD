@@ -42,7 +42,7 @@ void* ring(void*arg){
 
 int main()
 {
-	 N=3;
+	N=3;
     pthread_t worker_id[N];
 	int param[N];
 	
@@ -50,7 +50,7 @@ int main()
 	mailBox[1]=0;
 	pthread_mutex_init(&read_mutex,NULL);
 	pthread_mutex_init(&write_mutex,NULL);
-
+	
 	int i;
 	for(i=0;i<N;i++){
 		param[i]=i;

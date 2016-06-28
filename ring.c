@@ -6,7 +6,7 @@ typedef struct {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 	int id;
-} sema_t;
+}sema_t;
 int mailBox[2];	//id and content
 sema_t read_sema;
 sema_t write_sema;

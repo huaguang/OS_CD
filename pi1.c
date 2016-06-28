@@ -16,6 +16,7 @@ void *compute(void*arg){
 		res->sum+=(double)1/(double)(i*4+3);
 	}
 	res->sum=-res->sum;
+	res->sum*=4;
 	return res;
 }
 int main(){
@@ -31,7 +32,7 @@ int main(){
 	for(i=0;i<num;i++){
 		res_m->sum+=(double)1/(double)(i*4+1);
 	}
-	
+	res_m->sum*=4;
 	pthread_join(worker_id,(void**)&res);
 
 	sum=res_m->sum+res->sum;

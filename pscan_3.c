@@ -229,4 +229,12 @@ int main()
 	printf("%d\n",lineCount);
 	return 0;
 }
-
+/* 使用/usr/include目录时，搜索一定时候，fopen会崩溃。
+ * 还原方式：GDB中，设置断点，
+ * b 50 if tp->taskNum==9
+ * 然后，运行，到断点后，再单步进入find函数
+ * 再设置断点 b 202 if lineNum==12442 
+ * 运行到断点之后，再单步进入countDEFINE(）函数
+ * 在countDEFINE函数中，执行FILE*fp=fopen(fileName,"r");会导致程序崩溃。
+ * 报错：malloc()...memory corruption 
+ *

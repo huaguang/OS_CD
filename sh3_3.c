@@ -7,6 +7,7 @@
 #include<string.h>
 #include<unistd.h>
 #define FILE_NAME_SIZE 256
+char curPath[4096];
 int getComNum(char**args,short,int*comBegPos);
 void getComNumAndRedirectedPos(char **args,int *pComNum,int*pRedirectedPos);
 int isRedirected(char **args,short*);
@@ -14,8 +15,7 @@ int child(int,int,char**);
 void myCd(char*arg);
 void myPwd(int out,char*arg);
 void execCom(int in,int out,char** args);
-
-char curPath[4096];
+void getCurPath(char*currentPath);
 ino_t getFileInoByName(char*);
 void getFileNameByIno(ino_t ino,char*);
 void getPath(ino_t,char*);
@@ -30,7 +30,6 @@ int main(int argc,char* argv[]){
 	int comBegPos[20];
 	char **args;	
 	short argNum=0;
-	gets(command);
 	pid_t child_id;
 	int redirectPos=0;
 	char*redirectedFileName;
@@ -38,6 +37,9 @@ int main(int argc,char* argv[]){
 	int readPipe;
 	int comNum=0;
 	int lastOut[2];
+	getCurPath(curPath);
+	printf("%s$",curPath);
+	gets(command);
 	while(strcmp(command,"exit")!=0){
 		getComAndArgs(command,&args,&argNum);
 		comNum=getComNum(args,argNum,comBegPos);
@@ -105,11 +107,6 @@ int main(int argc,char* argv[]){
 			close(lastOut[0]);
 			close(lastOut[1]);
 		}
-
-
-
-//		  for(i=0;i<comNum;i++)
-
 		int k=0;
 		for(k=0;k<argNum;k++){
 			//	puts(args[k]);	
@@ -117,6 +114,7 @@ int main(int argc,char* argv[]){
 				free(args[k]);
 		}
 		free(args);
+		printf("%s$",curPath);
 		gets(command);
 	}	
 	puts("sh3.c结束运行");
@@ -137,9 +135,9 @@ int  child(int in,int out,char**args){
 void execCom(int in,int out,char** args){
 		pid_t child_id;
 		if(strcmp(args[0],"pwd")==0){
-			myPwd(out,args[0]);
+			myPwd(out,args[1]);
 		}else if(strcmp(args[0],"cd")==0){
-			myCd(args[0]);
+			myCd(args[1]);
 		}else{
 			child_id=fork();
 			if(child_id==0){
@@ -148,8 +146,18 @@ void execCom(int in,int out,char** args){
 					printf("execCom:%s  failed!\n",args[0]);
 				}
 			}
+			wait(NULL);
 		}
 }
+void getCurPath(char*currentPath){
+	currentPath[0]='\0';
+	getPath(getFileInoByName("."),currentPath);
+	int error=chdir(currentPath);
+	if(error!=0){
+		perror("getCurPath chdir error");
+	}
+}
+
 
 void myPwd(int out,char*arg){
 	char* fileName=(char*)malloc(4096);
@@ -159,11 +167,12 @@ void myPwd(int out,char*arg){
 	}else{
 		getPath(getFileInoByName(arg),fileName);
 	}
-	if(out!=1){
-		write(out,fileName,strlen(fileName));
+	/*if(out!=1){
 	}else{
 		puts(fileName);
-	}
+	}*/
+	write(out,fileName,strlen(fileName));
+	write(out,"\n",1);
 	int error=chdir(fileName);
 	if(error!=0){
 		perror("run pwd chdir error");
@@ -172,111 +181,46 @@ void myPwd(int out,char*arg){
 }
 
 void myCd(char*arg){
-	int error=chdir(arg);
+	int error;
+	if(arg==NULL){
+		error=chdir("..");
+	}else{
+		error=chdir(arg);
+	}
 	if(error!=0){
 		perror("run cd error");
+	}else{
+		getCurPath(curPath);
 	}
 }
-
-	/*	if(strcmp(args[0],"echo")==0){
-			redirectPos=isRedirected(args,argNum);
-			if(redirectPos!=0){
-				fd=open(args[redirectPos]+1,O_RDWR | O_CREAT);
-				if(fd==-1){
-					printf("create file failed:fileName=%s",args[redirectPos]+1);
-				}else{
-					args[redirectPos]=NULL;
+//preprocessing command  to make sure that there is no more than one space between two arguments and not end whth space;
+void prepareCommand(char*command){
+	int i=0;
+	int pos=0;
+	int distance=0;
+	for(i=0;command[i]!='\0';i++){
+		if(command[i]==' '){
+			distance=0;
+			pos=i+1;
+			while(command[pos++]==' ')
+				distance++;
+			if(distance>0){
+				pos=i+1;
+				while(command[pos+distance]!='\0'){
+					command[pos]=command[pos+distance];
+					pos++;
 				}
-			}
-			child_id=fork();
-			if(child_id==0){
-				//child
-				if(redirectPos!=0&&fd!=-1){
-					dup2(fd,1);
-				}
-				int error=execvp("echo",args);
-				if(error<0){
-					perror("run echo error");
-				}
-				puts("this is childThread:");
-			}
-			int status;
-			wait(&status);
-			if(!WIFEXITED(status)){
-				printf("echo child thread exit failed");
-			}
-			if(redirectPos!=0&&fd!=-1){
-				close(fd);
-			}
-		}else if(strcmp(args[0],"ls")==0){
-			child_id=fork();
-			if(child_id==0){
-				//child
-				int error=execvp("ls",args);
-				if(error<0){
-					perror("run ls error");
-				}
-			}
-		}else if(strcmp(args[0],"pwd")==0){
-			char* fileName=(char*)malloc(4096);
-			fileName[0]='\0';
-			if(args[1]==NULL){
-				getPath(getFileInoByName("."),fileName);
-			}else{
-				getPath(getFileInoByName(args[1]),fileName);
-			}
-			puts(fileName);
-			int error=chdir(fileName);
-			if(error!=0){
-				perror("run pwd chdir error");
-			}
-			free(fileName);
-		}else if(strcmp(args[0],"cd")==0){
-			int error=chdir(args[1]);
-			if(error!=0){
-				perror("run cd error");
-			}
-		}else{
-			//puts("no this file!");
-			child_id=fork();
-			if(child_id==0){
-				//child
-				int error=execvp(args[0],args);
-				if(error<0){
-					perror("1");
-				}
+				command[pos]='\0';
 			}
 		}
-		*/
-
-
-
-/*		pipe(fd);
-		child_id=fork();
-		if(child_id==0){
-			child(0,fd[1],args+comBegPos[0]);
-		}
-		wait(NULL);
-		pipe(fe);
-		close(fd[1]);
-		child_id=fork();
-		if(child_id==0){
-			child(fd[0],fe[1],args+comBegPos[1]);
-		}
-		wait(NULL);
-		close(fd[0]);
-		close(fe[1]);
-		child_id=fork();
-		if(child_id==0){
-			child(fe[0],1,args+comBegPos[2]);
-		}
-		wait(NULL);
-		close(fe[0]);
-
-*/
-
+	}
+	if(i>0&&command[i]=='\0'&&command[i-1]==' '){
+		command[i-1]='\0';
+	}
+}
 //命令处理，将命令与参数分开
 void getComAndArgs(char*command,char ***pargs,short*pArgNum){
+	prepareCommand(command);
 	int commandLen=strlen(command);
 	int i=0;
 	int j=0;
@@ -337,7 +281,6 @@ void getPath(ino_t ino,char *fileName){
 		chdir("..");
 		getFileNameByIno(ino,fileNameBuffer);
 		getPath(getFileInoByName("."),fileName);
-//		printf("/%s",fileNameBuffer);
 		strcat(fileName,"/\0");
 		strcat(fileName,fileNameBuffer);
 	}
